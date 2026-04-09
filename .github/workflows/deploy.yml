@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
 
+# 👇 添加下面这四行，赋予写入权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
