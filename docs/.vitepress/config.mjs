@@ -5,17 +5,14 @@ import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
-// docs 目录
 const docsRoot = path.resolve(__dirname, '..')
 
-// 递归扫描所有 .md 文件
+// 递归扫描 docs 下所有 .md 文件
 function walkMdFiles(dir) {
   const result = []
   const entries = readdirSync(dir, { withFileTypes: true })
 
   for (const entry of entries) {
-    // 跳过隐藏目录、public、node_modules
     if (
       entry.name.startsWith('.') ||
       entry.name === 'public' ||
@@ -36,12 +33,10 @@ function walkMdFiles(dir) {
   return result
 }
 
-// 统一成 / 分隔符
-function toPosix(filePath) {
-  return filePath.split(path.sep).join('/')
+function toPosix(p) {
+  return p.split(path.sep).join('/')
 }
 
-// 把中文路径转成 URL 可用格式
 function encodeRoute(route) {
   if (route === '/') return '/'
 
@@ -50,86 +45,120 @@ function encodeRoute(route) {
   return '/' + parts.join('/') + (hasTrailingSlash ? '/' : '')
 }
 
-// 文件路径转 VitePress 链接
 function toDocLink(relPath) {
   const noExt = toPosix(relPath).replace(/\.md$/, '')
 
-  // docs/index.md -> /
   if (noExt === 'index') {
     return '/'
   }
 
-  // docs/刷题/index.md -> /刷题/
   if (noExt.endsWith('/index')) {
     return encodeRoute('/' + noExt.slice(0, -'/index'.length) + '/')
   }
 
-  // 普通文档 -> /刷题/二分查找
   return encodeRoute('/' + noExt)
 }
 
-// 取所有 markdown 文件相对路径
+function getDisplayText(relPath) {
+  const posixPath = toPosix(relPath)
+  const baseName = path.posix.basename(posixPath, '.md')
+
+  if (baseName === 'index') {
+    const parts = posixPath.split('/')
+    if (parts.length === 1) return '首页'
+    return parts[parts.length - 2]
+  }
+
+  return baseName.replace(/[-_]/g, ' ')
+}
+
 const allMdFiles = walkMdFiles(docsRoot)
   .map(file => toPosix(path.relative(docsRoot, file)))
   .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
 
-// 提取一级目录名
+// docs 根目录下的 md，例如 docs/python.md、docs/sql.md
+const rootMdFiles = allMdFiles.filter(
+  file => !file.includes('/') && file !== 'index.md'
+)
+
+// 一级目录，例如 刷题、读书、日记
 const folders = [...new Set(
   allMdFiles
-    .filter(file => file.includes('/')) // 只取子目录中的 md
+    .filter(file => file.includes('/'))
     .map(file => file.split('/')[0])
 )].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
 
 function getFolderFiles(folder) {
   return allMdFiles
-    .filter(file => file.startsWith(`${folder}/`) && file.endsWith('.md'))
+    .filter(file => file.startsWith(`${folder}/`))
     .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
 }
 
-function formatTextFromFile(relPath) {
-  const name = path.posix.basename(relPath, '.md')
-
-  // index.md 显示成文件夹名
-  if (name === 'index') {
-    return relPath.split('/')[0]
-  }
-
-  return name.replace(/[-_]/g, ' ')
-}
-
-// 生成顶部导航
 function generateNav() {
   const nav = [{ text: '首页', link: '/' }]
 
+  // 根目录的其他 md 文件，做成一个下拉菜单
+  if (rootMdFiles.length > 0) {
+    nav.push({
+      text: '其他',
+      items: rootMdFiles.map(file => ({
+        text: getDisplayText(file),
+        link: toDocLink(file)
+      }))
+    })
+  }
+
+  // 每个一级目录一个入口，优先链接到该目录下的 index.md，没有就取第一个文件
   for (const folder of folders) {
-    const firstFile = getFolderFiles(folder)[0]
-    if (!firstFile) continue
+    const files = getFolderFiles(folder)
+    if (files.length === 0) continue
+
+    const indexFile = files.find(file => file === `${folder}/index.md`)
+    const entryFile = indexFile || files[0]
 
     nav.push({
       text: folder,
-      link: toDocLink(firstFile)
+      link: toDocLink(entryFile)
     })
   }
 
   return nav
 }
 
-// 生成侧边栏
 function generateSidebar() {
   const sidebar = {}
 
+  // 根目录页面的侧边栏
+  const rootItems = [
+    { text: '首页', link: '/' },
+    ...rootMdFiles.map(file => ({
+      text: getDisplayText(file),
+      link: toDocLink(file)
+    }))
+  ]
+
+  sidebar['/'] = [
+    {
+      text: '总览',
+      items: rootItems
+    }
+  ]
+
+  // 各一级目录的侧边栏
   for (const folder of folders) {
-    const files = getFolderFiles(folder).map(file => ({
-      text: formatTextFromFile(file),
+    const files = getFolderFiles(folder)
+
+    const items = files.map(file => ({
+      text: getDisplayText(file),
       link: toDocLink(file)
     }))
 
-    if (files.length === 0) continue
+    if (items.length === 0) continue
 
     sidebar[encodeRoute(`/${folder}/`)] = [
       {
         text: folder,
-        items: files
+        items
       }
     ]
   }
