@@ -2,47 +2,53 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   base: '/code-learning/',
-  title: "瑀的个人学习站",
-  description: "学习轨迹、读书、刷题与作品集",
-  appearance: 'dark',   // 强制深色模式
-  theme: './theme/index.js',  // 使用自定义主题
+  title: "学习笔记",
+  description: "刷题、读书、知识整理",
 
   themeConfig: {
-    // 顶部导航
+    // 顶部导航：简洁的几个入口
     nav: [
       { text: '首页', link: '/' },
-      { text: '学习记录', link: '/learning' },
-      { text: '读书', link: '/reading' },
-      { text: '刷题', link: '/practice' },
-      { text: '知识专题', link: '/knowledge' },
-      { text: '作品集', link: '/portfolio' },
-      { text: '关于', link: '/about' }
+      { text: '刷题', link: '/solutions/two-sum' },
+      { text: '日记', link: '/diary/2026-04-09' }
     ],
 
-    // 侧边栏（每个页面独立配置）
+    // 侧边栏：只保留你最核心的分类
     sidebar: {
-      '/': [],
-      '/learning': [],
-      '/reading': [],
-      '/practice': [],
-      '/knowledge': [],
-      '/portfolio': [],
-      '/about': []
+      '/solutions/': [
+        {
+          text: '题解列表',
+          items: [
+            { text: '1. 两数之和', link: '/solutions/two-sum' },
+            { text: '206. 反转链表', link: '/solutions/reverse-linked-list' }
+          ]
+        }
+      ],
+      '/diary/': [
+        {
+          text: '每日记录',
+          items: [
+            { text: '2026-04-09', link: '/diary/2026-04-09' }
+          ]
+        }
+      ]
     },
 
-    // 搜索
-    search: { provider: 'local' },
-    
-    // 右侧大纲
+    // 开启本地搜索
+    search: {
+      provider: 'local'
+    },
+
+    // 右侧大纲只显示二级标题
     outline: [2, 3],
-    
-    // 页脚（可选）
+
+    // 页脚
     footer: {
-      message: '持续记录，持续成长',
+      message: '保持思考，持续记录',
       copyright: '© 2026 瑀'
     },
 
-    // 社交链接（右上角GitHub图标）
+    // 右上角加个 GitHub 链接（可选）
     socialLinks: [
       { icon: 'github', link: 'https://github.com/tangxixi-mark/code-learning' }
     ]
