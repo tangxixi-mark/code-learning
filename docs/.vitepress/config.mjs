@@ -2,48 +2,49 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   base: '/code-learning/',
-  title: "学习记录",
-  description: "刷题笔记与算法整理",
+  title: "瑀的个人学习站",
+  description: "学习轨迹、读书、刷题与作品集",
+  appearance: 'dark',   // 强制深色模式
+  theme: './theme/index.js',  // 使用自定义主题
+
   themeConfig: {
-    search: {
-      provider: 'local'
-    },
+    // 顶部导航
     nav: [
       { text: '首页', link: '/' },
-      { text: '刷题日记', link: '/diary/2026-04-09' },
-      { text: '题解仓库', link: '/solutions/two-sum' }
+      { text: '学习记录', link: '/learning' },
+      { text: '读书', link: '/reading' },
+      { text: '刷题', link: '/practice' },
+      { text: '知识专题', link: '/knowledge' },
+      { text: '作品集', link: '/portfolio' },
+      { text: '关于', link: '/about' }
     ],
+
+    // 侧边栏（每个页面独立配置）
     sidebar: {
-      '/diary/': [
-        {
-          text: '📅 每日记录',
-          items: [
-            { text: '2026-04-09', link: '/diary/2026-04-09' }
-          ]
-        }
-      ],
-      '/solutions/': [
-        {
-          text: '🔥 热门必刷',
-          items: [
-            { text: '1. 两数之和', link: '/solutions/two-sum' },
-            { text: '206. 反转链表', link: '/solutions/reverse-linked-list' }
-          ]
-        },
-        {
-          text: '📦 按数据结构',
-          collapsed: false,
-          items: [
-            { text: '数组', link: '/solutions/array' },
-            { text: '链表', link: '/solutions/linked-list' }
-          ]
-        }
-      ]
+      '/': [],
+      '/learning': [],
+      '/reading': [],
+      '/practice': [],
+      '/knowledge': [],
+      '/portfolio': [],
+      '/about': []
     },
+
+    // 搜索
+    search: { provider: 'local' },
+    
+    // 右侧大纲
     outline: [2, 3],
-    docFooter: {
-      prev: '上一篇',
-      next: '下一篇'
-    }
+    
+    // 页脚（可选）
+    footer: {
+      message: '持续记录，持续成长',
+      copyright: '© 2026 瑀'
+    },
+
+    // 社交链接（右上角GitHub图标）
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/tangxixi-mark/code-learning' }
+    ]
   }
 })
