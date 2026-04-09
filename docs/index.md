@@ -1,25 +1,9 @@
----
-# https://vitepress.dev/reference/default-theme-home-page
-layout: home
+# 👋 欢迎来到我的刷题笔记本
 
-hero:
-  name: "学习记录"
-  text: "A VitePress Site"
-  tagline: My great project tagline
-  actions:
-    - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
-    - theme: alt
-      text: API Examples
-      link: /api-examples
+这里记录了我学习算法与数据结构的点滴，包括 LeetCode 题解、刷题日记和知识整理。
 
-features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
----
+## 🚀 快速导航
+
+- [📝 刷题日记](/diary/2026-04-09)
+- [📚 题解仓库](/solutions/two-sum)
 
