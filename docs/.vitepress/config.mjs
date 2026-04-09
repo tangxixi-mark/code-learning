@@ -1,70 +1,146 @@
 import { defineConfig } from 'vitepress'
+import { readdirSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-// 使用 Vite 的 glob 导入，无需 fs，支持中文路径
-const modules = import.meta.glob('/docs/**/*.md', { eager: true, as: 'raw' })
-const filePaths = Object.keys(modules)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
-// 提取所有一级文件夹名（例如 '刷题', '日记', '读书'）
+// docs 目录
+const docsRoot = path.resolve(__dirname, '..')
+
+// 递归扫描所有 .md 文件
+function walkMdFiles(dir) {
+  const result = []
+  const entries = readdirSync(dir, { withFileTypes: true })
+
+  for (const entry of entries) {
+    // 跳过隐藏目录、public、node_modules
+    if (
+      entry.name.startsWith('.') ||
+      entry.name === 'public' ||
+      entry.name === 'node_modules'
+    ) {
+      continue
+    }
+
+    const fullPath = path.join(dir, entry.name)
+
+    if (entry.isDirectory()) {
+      result.push(...walkMdFiles(fullPath))
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      result.push(fullPath)
+    }
+  }
+
+  return result
+}
+
+// 统一成 / 分隔符
+function toPosix(filePath) {
+  return filePath.split(path.sep).join('/')
+}
+
+// 把中文路径转成 URL 可用格式
+function encodeRoute(route) {
+  if (route === '/') return '/'
+
+  const hasTrailingSlash = route.endsWith('/')
+  const parts = route.split('/').filter(Boolean).map(encodeURIComponent)
+  return '/' + parts.join('/') + (hasTrailingSlash ? '/' : '')
+}
+
+// 文件路径转 VitePress 链接
+function toDocLink(relPath) {
+  const noExt = toPosix(relPath).replace(/\.md$/, '')
+
+  // docs/index.md -> /
+  if (noExt === 'index') {
+    return '/'
+  }
+
+  // docs/刷题/index.md -> /刷题/
+  if (noExt.endsWith('/index')) {
+    return encodeRoute('/' + noExt.slice(0, -'/index'.length) + '/')
+  }
+
+  // 普通文档 -> /刷题/二分查找
+  return encodeRoute('/' + noExt)
+}
+
+// 取所有 markdown 文件相对路径
+const allMdFiles = walkMdFiles(docsRoot)
+  .map(file => toPosix(path.relative(docsRoot, file)))
+  .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+
+// 提取一级目录名
 const folders = [...new Set(
-  filePaths
-    .map(path => {
-      const match = path.match(/^\/docs\/([^/]+)\//)
-      return match ? decodeURIComponent(match[1]) : null
-    })
-    .filter(name => name && !name.startsWith('.') && name !== 'public')
-)]
+  allMdFiles
+    .filter(file => file.includes('/')) // 只取子目录中的 md
+    .map(file => file.split('/')[0])
+)].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
 
-// 生成导航栏：每个文件夹一个入口，链接到文件夹下第一个 .md 文件
+function getFolderFiles(folder) {
+  return allMdFiles
+    .filter(file => file.startsWith(`${folder}/`) && file.endsWith('.md'))
+    .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+}
+
+function formatTextFromFile(relPath) {
+  const name = path.posix.basename(relPath, '.md')
+
+  // index.md 显示成文件夹名
+  if (name === 'index') {
+    return relPath.split('/')[0]
+  }
+
+  return name.replace(/[-_]/g, ' ')
+}
+
+// 生成顶部导航
 function generateNav() {
   const nav = [{ text: '首页', link: '/' }]
-  folders.forEach(folder => {
-    // 找到该文件夹下的第一个 .md 文件
-    const firstFile = filePaths
-      .filter(p => p.startsWith(`/docs/${encodeURIComponent(folder)}/`) && p.endsWith('.md'))
-      .sort()[0]
-    if (firstFile) {
-      const link = firstFile.replace(/^\/docs/, '').replace(/\.md$/, '')
-      nav.push({
-        text: folder,
-        link: link
-      })
-    }
-  })
+
+  for (const folder of folders) {
+    const firstFile = getFolderFiles(folder)[0]
+    if (!firstFile) continue
+
+    nav.push({
+      text: folder,
+      link: toDocLink(firstFile)
+    })
+  }
+
   return nav
 }
 
-// 生成侧边栏：每个文件夹一个分组，包含该文件夹下所有 .md 文件
+// 生成侧边栏
 function generateSidebar() {
   const sidebar = {}
-  folders.forEach(folder => {
-    const encodedFolder = encodeURIComponent(folder)
-    const files = filePaths
-      .filter(p => p.startsWith(`/docs/${encodedFolder}/`) && p.endsWith('.md'))
-      .map(p => {
-        const fileName = p.split('/').pop().replace(/\.md$/, '')
-        const decodedFileName = decodeURIComponent(fileName)
-        const link = p.replace(/^\/docs/, '').replace(/\.md$/, '')
-        return {
-          text: decodedFileName.replace(/-/g, ' '),
-          link: link
-        }
-      })
-      .sort((a, b) => a.text.localeCompare(b.text))
-    
-    sidebar[`/${folder}/`] = [
+
+  for (const folder of folders) {
+    const files = getFolderFiles(folder).map(file => ({
+      text: formatTextFromFile(file),
+      link: toDocLink(file)
+    }))
+
+    if (files.length === 0) continue
+
+    sidebar[encodeRoute(`/${folder}/`)] = [
       {
         text: folder,
         items: files
       }
     ]
-  })
+  }
+
   return sidebar
 }
 
 export default defineConfig({
   base: '/code-learning/',
-  title: "学习笔记",
-  description: "个人学习记录",
+  title: '学习笔记',
+  description: '个人学习记录',
   themeConfig: {
     nav: generateNav(),
     sidebar: generateSidebar(),
@@ -78,6 +154,5 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/tangxixi-mark/code-learning' }
     ]
   },
-  // 忽略死链检查，避免中文编码问题误报（可选）
   ignoreDeadLinks: true
 })
