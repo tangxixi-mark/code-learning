@@ -1,76 +1,60 @@
 import { defineConfig } from 'vitepress'
-import { readdirSync, statSync, existsSync, readFileSync } from 'fs'
-import { join, basename } from 'path'
 
-// 获取 docs 目录路径
-const docsPath = join(process.cwd(), 'docs')
+// 使用 Vite 的 glob 导入，无需 fs，支持中文路径
+const modules = import.meta.glob('/docs/**/*.md', { eager: true, as: 'raw' })
+const filePaths = Object.keys(modules)
 
-// 自动扫描 docs 下的一级子目录（排除 .vitepress、public 和以 . 开头的隐藏目录）
-function getModules() {
-  return readdirSync(docsPath).filter(dir => {
-    const fullPath = join(docsPath, dir)
-    return statSync(fullPath).isDirectory() && !dir.startsWith('.') && dir !== 'public'
-  })
-}
-
-// 根据文件夹名生成导航文字（首字母大写，其余保持）
-function formatModuleName(dir) {
-  return dir.charAt(0).toUpperCase() + dir.slice(1)
-}
-
-// 获取模块的默认链接：取文件夹内的第一个 .md 文件，如果没有则链接到该文件夹下的 index.md
-function getModuleLink(moduleDir) {
-  const modulePath = join(docsPath, moduleDir)
-  const files = readdirSync(modulePath).filter(f => f.endsWith('.md'))
-  if (files.length > 0) {
-    // 优先使用 index.md，否则用第一个文件
-    const indexFile = files.find(f => f === 'index.md') || files[0]
-    return `/${moduleDir}/${indexFile.replace(/\.md$/, '')}`
-  }
-  return `/${moduleDir}/` // fallback
-}
-
-// 自动生成导航栏
-function generateNav() {
-  const modules = getModules()
-  const nav = [{ text: '首页', link: '/' }]
-  modules.forEach(mod => {
-    nav.push({
-      text: formatModuleName(mod),
-      link: getModuleLink(mod)
+// 提取所有一级文件夹名（例如 '刷题', '日记', '读书'）
+const folders = [...new Set(
+  filePaths
+    .map(path => {
+      const match = path.match(/^\/docs\/([^/]+)\//)
+      return match ? decodeURIComponent(match[1]) : null
     })
+    .filter(name => name && !name.startsWith('.') && name !== 'public')
+)]
+
+// 生成导航栏：每个文件夹一个入口，链接到文件夹下第一个 .md 文件
+function generateNav() {
+  const nav = [{ text: '首页', link: '/' }]
+  folders.forEach(folder => {
+    // 找到该文件夹下的第一个 .md 文件
+    const firstFile = filePaths
+      .filter(p => p.startsWith(`/docs/${encodeURIComponent(folder)}/`) && p.endsWith('.md'))
+      .sort()[0]
+    if (firstFile) {
+      const link = firstFile.replace(/^\/docs/, '').replace(/\.md$/, '')
+      nav.push({
+        text: folder,
+        link: link
+      })
+    }
   })
   return nav
 }
 
-// 自动生成侧边栏：为每个模块扫描其文件夹下的 .md 文件
+// 生成侧边栏：每个文件夹一个分组，包含该文件夹下所有 .md 文件
 function generateSidebar() {
-  const modules = getModules()
   const sidebar = {}
-  modules.forEach(mod => {
-    const modulePath = join(docsPath, mod)
-    const files = readdirSync(modulePath)
-      .filter(f => f.endsWith('.md') && f !== 'index.md') // 排除 index.md（如果希望 index 也显示，可去掉过滤）
-      .map(f => {
-        const name = f.replace(/\.md$/, '')
+  folders.forEach(folder => {
+    const encodedFolder = encodeURIComponent(folder)
+    const files = filePaths
+      .filter(p => p.startsWith(`/docs/${encodedFolder}/`) && p.endsWith('.md'))
+      .map(p => {
+        const fileName = p.split('/').pop().replace(/\.md$/, '')
+        const decodedFileName = decodeURIComponent(fileName)
+        const link = p.replace(/^\/docs/, '').replace(/\.md$/, '')
         return {
-          text: name.replace(/-/g, ' '),
-          link: `/${mod}/${name}`
+          text: decodedFileName.replace(/-/g, ' '),
+          link: link
         }
       })
+      .sort((a, b) => a.text.localeCompare(b.text))
     
-    // 如果模块下有 index.md，可以把它作为模块概述链接放在侧边栏顶部（可选）
-    const hasIndex = existsSync(join(modulePath, 'index.md'))
-    const items = []
-    if (hasIndex) {
-      items.push({ text: '概述', link: `/${mod}/` })
-    }
-    items.push(...files)
-    
-    sidebar[`/${mod}/`] = [
+    sidebar[`/${folder}/`] = [
       {
-        text: formatModuleName(mod),
-        items: items
+        text: folder,
+        items: files
       }
     ]
   })
@@ -80,12 +64,10 @@ function generateSidebar() {
 export default defineConfig({
   base: '/code-learning/',
   title: "学习笔记",
-  description: "刷题、读书、知识整理",
-
+  description: "个人学习记录",
   themeConfig: {
     nav: generateNav(),
     sidebar: generateSidebar(),
-
     search: { provider: 'local' },
     outline: [2, 3],
     footer: {
@@ -95,5 +77,7 @@ export default defineConfig({
     socialLinks: [
       { icon: 'github', link: 'https://github.com/tangxixi-mark/code-learning' }
     ]
-  }
+  },
+  // 忽略死链检查，避免中文编码问题误报（可选）
+  ignoreDeadLinks: true
 })
